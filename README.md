@@ -212,6 +212,7 @@ This keeps early debugging fast and avoids mixing application behavior problems 
 The repository starts as a small Node.js workspace. Runtime code will be added in later steps.
 
 ```text
+docker-compose.yml  Root Compose entrypoint for local dependencies.
 apps/
   producer/       Kafka event producer service.
   consumer/       Kafka-to-database consumer service.
@@ -231,6 +232,12 @@ Step 2 verification:
 - `find . -maxdepth 3 -type f | sort` shows workspace metadata and placeholder files only.
 - No application runtime code has been added.
 
+Step 3 verification:
+
+- `docker compose config` resolves the root Compose entrypoint.
+- Kafka is configured as a local single-node broker on port `9092`.
+- PostgreSQL is configured on port `5432` with database `event_stream`.
+
 ## Definitions
 
 | Term | Meaning |
@@ -245,6 +252,7 @@ Step 2 verification:
 ## Current Status
 
 - Step 1 is complete.
-- Step 2 is drafted and awaiting review.
+- Step 2 is complete.
+- Step 3 is drafted and awaiting review.
 - No application runtime code has been written for this project.
-- No GitHub commit or push has been performed.
+- Step 3 has not been committed or pushed.
