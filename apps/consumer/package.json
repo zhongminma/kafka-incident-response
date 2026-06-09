@@ -1,0 +1,8 @@
+{
+  "name": "@kafka-incident-response/consumer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Consumer service package for the Kafka incident response lab.",
+  "scripts": {}
+}

@@ -1,0 +1,8 @@
+{
+  "name": "@kafka-incident-response/control-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Control API package for toggling Kafka incident response scenarios.",
+  "scripts": {}
+}

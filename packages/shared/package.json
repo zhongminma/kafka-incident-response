@@ -1,0 +1,8 @@
+{
+  "name": "@kafka-incident-response/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared package for event contracts and common helpers.",
+  "scripts": {}
+}

@@ -1,0 +1,8 @@
+{
+  "name": "@kafka-incident-response/producer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Producer service package for the Kafka incident response lab.",
+  "scripts": {}
+}

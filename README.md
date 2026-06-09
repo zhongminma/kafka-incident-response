@@ -207,6 +207,30 @@ The recommended order is local-first:
 
 This keeps early debugging fast and avoids mixing application behavior problems with Kubernetes deployment problems.
 
+## Repository Layout
+
+The repository starts as a small Node.js workspace. Runtime code will be added in later steps.
+
+```text
+apps/
+  producer/       Kafka event producer service.
+  consumer/       Kafka-to-database consumer service.
+  control-api/    Scenario control and health API.
+packages/
+  shared/         Shared event contracts and helper utilities.
+infra/
+  docker/         Docker Compose and local dependency configuration.
+  kubernetes/     Kubernetes manifests.
+  observability/  Prometheus, Grafana, and OpenTelemetry configuration.
+docs/             Incident runbooks and verification notes.
+```
+
+Step 2 verification:
+
+- `git status --short` shows only skeleton files for review.
+- `find . -maxdepth 3 -type f | sort` shows workspace metadata and placeholder files only.
+- No application runtime code has been added.
+
 ## Definitions
 
 | Term | Meaning |
@@ -220,6 +244,7 @@ This keeps early debugging fast and avoids mixing application behavior problems 
 
 ## Current Status
 
-- Step 1 is drafted and awaiting review.
-- No application code has been written for this project.
+- Step 1 is complete.
+- Step 2 is drafted and awaiting review.
+- No application runtime code has been written for this project.
 - No GitHub commit or push has been performed.
