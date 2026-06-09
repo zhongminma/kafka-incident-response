@@ -224,6 +224,7 @@ infra/
   kubernetes/     Kubernetes manifests.
   observability/  Prometheus, Grafana, and OpenTelemetry configuration.
 docs/             Incident runbooks and verification notes.
+scripts/          Local setup and maintenance scripts.
 ```
 
 Step 2 verification:
@@ -237,6 +238,12 @@ Step 3 verification:
 - `docker compose config` resolves the root Compose entrypoint.
 - Kafka is configured as a local single-node broker on port `9092`.
 - PostgreSQL is configured on port `5432` with database `event_stream`.
+
+Step 4 verification:
+
+- `sh -n scripts/setup-topics.sh` validates the topic setup script syntax.
+- `docker compose config` confirms the Docker Compose service name used by the script.
+- When Kafka is running, `./scripts/setup-topics.sh` creates `orders.events` and `orders.dlq` idempotently.
 
 ## Definitions
 
@@ -253,6 +260,7 @@ Step 3 verification:
 
 - Step 1 is complete.
 - Step 2 is complete.
-- Step 3 is drafted and awaiting review.
+- Step 3 is complete.
+- Step 4 is drafted and awaiting review.
 - No application runtime code has been written for this project.
-- Step 3 has not been committed or pushed.
+- Step 4 has not been committed or pushed.
