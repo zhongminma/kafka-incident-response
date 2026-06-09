@@ -251,6 +251,13 @@ Step 5 verification:
 - `npm run test` verifies workspace test scripts still resolve.
 - When Kafka is running, `npm run start -w apps/producer` publishes normal `order.created` events to `orders.events`.
 
+Step 6 verification:
+
+- `npm run check -w apps/consumer` validates consumer JavaScript syntax.
+- `npm run test` verifies workspace test scripts still resolve.
+- `docker compose config` confirms the PostgreSQL init schema mount resolves correctly.
+- When Kafka and PostgreSQL are running, the consumer stores normal `order.created` events in `consumed_events`.
+
 ## Definitions
 
 | Term | Meaning |
@@ -268,6 +275,7 @@ Step 5 verification:
 - Step 2 is complete.
 - Step 3 is complete.
 - Step 4 is complete.
-- Step 5 is drafted and awaiting review.
-- Producer runtime code exists; consumer and database runtime code have not been written.
-- Step 5 has not been committed or pushed.
+- Step 5 is complete.
+- Step 6 is drafted and awaiting review.
+- Producer and consumer MVP runtime code exists; advanced incident handling has not been written.
+- Step 6 has not been committed or pushed.

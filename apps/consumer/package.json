@@ -4,5 +4,12 @@
   "private": true,
   "type": "module",
   "description": "Consumer service package for the Kafka incident response lab.",
-  "scripts": {}
+  "scripts": {
+    "start": "node src/index.js",
+    "check": "node --check src/index.js"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "pg": "^8.21.0"
+  }
 }

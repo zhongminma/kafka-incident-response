@@ -39,6 +39,7 @@ services:
       POSTGRES_PASSWORD: app
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:
         - CMD-SHELL
