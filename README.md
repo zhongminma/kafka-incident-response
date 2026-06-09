@@ -245,6 +245,12 @@ Step 4 verification:
 - `docker compose config` confirms the Docker Compose service name used by the script.
 - When Kafka is running, `./scripts/setup-topics.sh` creates `orders.events` and `orders.dlq` idempotently.
 
+Step 5 verification:
+
+- `npm run check -w apps/producer` validates producer JavaScript syntax.
+- `npm run test` verifies workspace test scripts still resolve.
+- When Kafka is running, `npm run start -w apps/producer` publishes normal `order.created` events to `orders.events`.
+
 ## Definitions
 
 | Term | Meaning |
@@ -261,6 +267,7 @@ Step 4 verification:
 - Step 1 is complete.
 - Step 2 is complete.
 - Step 3 is complete.
-- Step 4 is drafted and awaiting review.
-- No application runtime code has been written for this project.
-- Step 4 has not been committed or pushed.
+- Step 4 is complete.
+- Step 5 is drafted and awaiting review.
+- Producer runtime code exists; consumer and database runtime code have not been written.
+- Step 5 has not been committed or pushed.
