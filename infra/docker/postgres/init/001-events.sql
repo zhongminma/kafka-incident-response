@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS consumed_events (
   id BIGSERIAL PRIMARY KEY,
-  event_id UUID NOT NULL,
+  event_id UUID NOT NULL UNIQUE,
   event_type TEXT NOT NULL,
   order_id UUID NOT NULL,
   topic TEXT NOT NULL,

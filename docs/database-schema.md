@@ -18,7 +18,7 @@ The `consumed_events` table stores each Kafka message successfully written by th
 | Column | Type | Purpose |
 | --- | --- | --- |
 | `id` | `BIGSERIAL PRIMARY KEY` | Internal database row ID. |
-| `event_id` | `UUID NOT NULL` | Event ID from the Kafka payload. |
+| `event_id` | `UUID NOT NULL UNIQUE` | Event ID from the Kafka payload; used for idempotency. |
 | `event_type` | `TEXT NOT NULL` | Event type such as `order.created`. |
 | `order_id` | `UUID NOT NULL` | Business order ID from the event payload. |
 | `topic` | `TEXT NOT NULL` | Kafka topic name. |
@@ -35,9 +35,9 @@ The `consumed_events` table stores each Kafka message successfully written by th
 | `consumed_events_order_id_idx` | Query by order ID. |
 | `consumed_events_consumed_at_idx` | Query by ingestion time. |
 
-## Intentional Limitations
+## Duplicate Handling
 
-This step does not add unique constraints yet. Duplicate-message idempotency is implemented in Step 12 so that the duplicate scenario can be demonstrated before and after the fix.
+Step 12 adds a unique `event_id` constraint and idempotent consumer inserts for duplicate-message handling.
 
 ## Verify
 

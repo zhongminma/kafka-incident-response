@@ -6,7 +6,7 @@ Step 6 adds a minimal Kafka-to-PostgreSQL consumer.
 
 The consumer reads normal `order.created` events from `orders.events` and inserts them into PostgreSQL.
 
-This step intentionally does not implement idempotency, duplicate handling, poison message routing, retry limits, dead-letter publishing, metrics, or tracing. Those behaviors are implemented in later steps.
+This step now handles duplicate messages idempotently. It still does not implement poison message routing, retry limits, dead-letter publishing, or tracing. Those behaviors are implemented in later steps.
 
 ## Database Table
 
@@ -20,7 +20,7 @@ Important fields:
 
 | Column | Meaning |
 | --- | --- |
-| `event_id` | Event UUID from Kafka payload. |
+| `event_id` | Event UUID from Kafka payload; duplicates are skipped by unique constraint. |
 | `event_type` | Event type, currently `order.created`. |
 | `order_id` | Business order ID from the event payload. |
 | `topic` | Kafka topic name. |

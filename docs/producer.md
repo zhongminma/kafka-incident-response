@@ -56,6 +56,7 @@ npm run start -w apps/producer
 | `KAFKA_BROKERS` | `localhost:9092` | Comma-separated broker list. |
 | `EVENTS_TOPIC` | `orders.events` | Topic where normal order events are published. |
 | `PRODUCER_INTERVAL_MS` | `1000` | Delay between published events. |
+| `DUPLICATE_EVERY_N_MESSAGES` | `0` | Publish the previous event again every N messages; `0` disables duplicates. |
 
 ## Step 5 Verification
 

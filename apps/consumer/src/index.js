@@ -26,6 +26,13 @@ const consumedMessages = new client.Counter({
   registers: [register]
 });
 
+const duplicateMessages = new client.Counter({
+  name: "consumer_duplicate_messages_total",
+  help: "Total duplicate Kafka messages skipped by idempotent database writes.",
+  labelNames: ["topic", "event_type"],
+  registers: [register]
+});
+
 const consumerErrors = new client.Counter({
   name: "consumer_processing_errors_total",
   help: "Total consumer message processing errors.",
@@ -69,7 +76,7 @@ function parseOrderEvent(messageValue) {
 }
 
 async function insertEvent(pool, event, message) {
-  await pool.query(
+  const result = await pool.query(
     `INSERT INTO consumed_events (
       event_id,
       event_type,
@@ -78,7 +85,9 @@ async function insertEvent(pool, event, message) {
       partition_id,
       message_offset,
       payload
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    ON CONFLICT (event_id) DO NOTHING
+    RETURNING id`,
     [
       event.eventId,
       event.eventType,
@@ -89,6 +98,8 @@ async function insertEvent(pool, event, message) {
       event
     ]
   );
+
+  return result.rowCount === 1;
 }
 
 function startMetricsServer() {
@@ -163,13 +174,20 @@ async function main() {
         }
 
         const endTimer = dbWriteDuration.startTimer({ topic });
-        await insertEvent(pool, event, { topic, partition, message });
+        const inserted = await insertEvent(pool, event, { topic, partition, message });
         endTimer();
 
-        consumedMessages.inc({ topic, event_type: event.eventType });
-        console.log(
-          `Stored ${event.eventType} eventId=${event.eventId} orderId=${event.payload.orderId} offset=${message.offset}`
-        );
+        if (inserted) {
+          consumedMessages.inc({ topic, event_type: event.eventType });
+          console.log(
+            `Stored ${event.eventType} eventId=${event.eventId} orderId=${event.payload.orderId} offset=${message.offset}`
+          );
+        } else {
+          duplicateMessages.inc({ topic, event_type: event.eventType });
+          console.log(
+            `Skipped duplicate ${event.eventType} eventId=${event.eventId} orderId=${event.payload.orderId} offset=${message.offset}`
+          );
+        }
       } catch (error) {
         consumerErrors.inc({ topic });
         throw error;

@@ -8,7 +8,8 @@ const config = {
   brokers: (process.env.KAFKA_BROKERS ?? "localhost:9092").split(","),
   topic: process.env.EVENTS_TOPIC ?? "orders.events",
   intervalMs: Number.parseInt(process.env.PRODUCER_INTERVAL_MS ?? "1000", 10),
-  metricsPort: Number.parseInt(process.env.METRICS_PORT ?? "9101", 10)
+  metricsPort: Number.parseInt(process.env.METRICS_PORT ?? "9101", 10),
+  duplicateEveryNMessages: Number.parseInt(process.env.DUPLICATE_EVERY_N_MESSAGES ?? "0", 10)
 };
 
 const register = new client.Registry();
@@ -17,6 +18,13 @@ client.collectDefaultMetrics({ register, prefix: "producer_" });
 const producedMessages = new client.Counter({
   name: "producer_messages_published_total",
   help: "Total Kafka messages published by the producer.",
+  labelNames: ["topic", "event_type"],
+  registers: [register]
+});
+
+const duplicateMessages = new client.Counter({
+  name: "producer_duplicate_messages_published_total",
+  help: "Total duplicate Kafka messages intentionally published by the producer.",
   labelNames: ["topic", "event_type"],
   registers: [register]
 });
@@ -85,6 +93,22 @@ function startMetricsServer() {
   return server;
 }
 
+function selectEventToPublish(state) {
+  const shouldDuplicate =
+    config.duplicateEveryNMessages > 0 &&
+    state.lastEvent &&
+    state.publishedCount > 0 &&
+    state.publishedCount % config.duplicateEveryNMessages === 0;
+
+  if (shouldDuplicate) {
+    return { event: state.lastEvent, isDuplicate: true };
+  }
+
+  const event = buildOrderEvent();
+  state.lastEvent = event;
+  return { event, isDuplicate: false };
+}
+
 async function main() {
   validateConfig();
   const metricsServer = startMetricsServer();
@@ -97,6 +121,7 @@ async function main() {
 
   const producer = kafka.producer();
   let shuttingDown = false;
+  const state = { publishedCount: 0, lastEvent: null };
 
   const shutdown = async (signal) => {
     if (shuttingDown) {
@@ -120,11 +145,11 @@ async function main() {
 
   await producer.connect();
   console.log(
-    `Producer connected. topic=${config.topic} brokers=${config.brokers.join(",")} intervalMs=${config.intervalMs}`
+    `Producer connected. topic=${config.topic} brokers=${config.brokers.join(",")} intervalMs=${config.intervalMs} duplicateEveryNMessages=${config.duplicateEveryNMessages}`
   );
 
   while (!shuttingDown) {
-    const event = buildOrderEvent();
+    const { event, isDuplicate } = selectEventToPublish(state);
     const endTimer = publishDuration.startTimer({ topic: config.topic });
 
     try {
@@ -138,9 +163,15 @@ async function main() {
         ]
       });
 
+      state.publishedCount += 1;
       producedMessages.inc({ topic: config.topic, event_type: event.eventType });
+
+      if (isDuplicate) {
+        duplicateMessages.inc({ topic: config.topic, event_type: event.eventType });
+      }
+
       console.log(
-        `Published ${event.eventType} eventId=${event.eventId} orderId=${event.payload.orderId}`
+        `Published ${event.eventType} eventId=${event.eventId} orderId=${event.payload.orderId} duplicate=${isDuplicate}`
       );
     } catch (error) {
       publishErrors.inc({ topic: config.topic });
@@ -164,6 +195,10 @@ function validateConfig() {
 
   if (!Number.isInteger(config.metricsPort) || config.metricsPort <= 0) {
     throw new Error("METRICS_PORT must be a positive integer.");
+  }
+
+  if (!Number.isInteger(config.duplicateEveryNMessages) || config.duplicateEveryNMessages < 0) {
+    throw new Error("DUPLICATE_EVERY_N_MESSAGES must be a non-negative integer.");
   }
 }
 

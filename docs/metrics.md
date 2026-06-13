@@ -18,6 +18,7 @@ Override either port with `METRICS_PORT`.
 | `producer_messages_published_total` | Count of published Kafka messages by topic and event type. |
 | `producer_publish_errors_total` | Count of publish failures by topic. |
 | `producer_publish_duration_seconds` | Publish duration histogram. |
+| `producer_duplicate_messages_published_total` | Count of intentionally duplicated messages. |
 | `producer_*` default metrics | Node.js process and runtime metrics. |
 
 ## Consumer Metrics
@@ -28,6 +29,7 @@ Override either port with `METRICS_PORT`.
 | `consumer_processing_errors_total` | Count of processing failures by topic. |
 | `consumer_db_write_duration_seconds` | PostgreSQL write duration histogram. |
 | `consumer_processing_delay_ms` | Configured artificial per-message delay. |
+| `consumer_duplicate_messages_total` | Count of duplicate messages skipped by idempotent writes. |
 | `consumer_*` default metrics | Node.js process and runtime metrics. |
 
 ## Verify

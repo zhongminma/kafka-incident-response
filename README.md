@@ -288,6 +288,13 @@ Step 11 verification:
 - `docker compose config` confirms the Kafka service remains resolvable.
 - `docs/broker-failure.md` documents stop, observe, recover, and cleanup steps.
 
+Step 12 verification:
+
+- `npm run check -w apps/producer` validates duplicate publishing controls.
+- `npm run check -w apps/consumer` validates idempotent consumer writes.
+- `docker compose config` confirms the updated schema remains mounted.
+- `docs/duplicate-messages.md` documents duplicate injection and verification.
+
 ## Definitions
 
 | Term | Meaning |
@@ -311,6 +318,7 @@ Step 11 verification:
 - Step 8 is complete.
 - Step 9 is complete.
 - Step 10 is complete.
-- Step 11 is drafted and awaiting review.
-- Broker failure can be simulated with Docker Compose stop/start and observed with logs and metrics.
-- Step 11 has not been committed or pushed.
+- Step 11 is complete.
+- Step 12 is drafted and awaiting review.
+- Duplicate messages can be simulated and skipped with idempotent database writes.
+- Step 12 has not been committed or pushed.
