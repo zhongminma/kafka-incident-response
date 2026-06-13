@@ -276,6 +276,12 @@ Step 9 verification:
 - `npm run check -w apps/producer` validates producer interval configuration.
 - `docs/consumer-lag.md` documents how to create and recover increasing lag.
 
+Step 10 verification:
+
+- `npm run check -w apps/producer` validates producer metrics endpoint code.
+- `npm run check -w apps/consumer` validates consumer metrics endpoint code.
+- `docs/metrics.md` lists producer and consumer Prometheus metrics.
+
 ## Definitions
 
 | Term | Meaning |
@@ -297,6 +303,7 @@ Step 9 verification:
 - Step 6 is complete.
 - Step 7 is complete.
 - Step 8 is complete.
-- Step 9 is drafted and awaiting review.
-- Consumer lag can be simulated with producer interval and consumer delay settings.
-- Step 9 has not been committed or pushed.
+- Step 9 is complete.
+- Step 10 is drafted and awaiting review.
+- Producer and consumer expose Prometheus-format metrics endpoints.
+- Step 10 has not been committed or pushed.

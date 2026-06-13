@@ -9,6 +9,7 @@
     "check": "node --check src/index.js"
   },
   "dependencies": {
-    "kafkajs": "^2.2.4"
+    "kafkajs": "^2.2.4",
+    "prom-client": "^15.1.3"
   }
 }
