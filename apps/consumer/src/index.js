@@ -12,6 +12,12 @@ const config = {
     process.env.DATABASE_URL ?? "postgres://app:app@localhost:5432/event_stream"
 };
 
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function parseOrderEvent(messageValue) {
   if (!messageValue) {
     throw new Error("Kafka message value is empty.");
@@ -87,12 +93,16 @@ async function main() {
   await consumer.subscribe({ topic: config.topic, fromBeginning: true });
 
   console.log(
-    `Consumer connected. topic=${config.topic} groupId=${config.groupId} brokers=${config.brokers.join(",")}`
+    `Consumer connected. topic=${config.topic} groupId= brokers= processingDelayMs=`
   );
 
   await consumer.run({
     eachMessage: async ({ topic, partition, message }) => {
       const event = parseOrderEvent(message.value);
+
+      if (config.processingDelayMs > 0) {
+        await sleep(config.processingDelayMs);
+      }
 
       await insertEvent(pool, event, { topic, partition, message });
 
@@ -110,6 +120,10 @@ function validateConfig() {
 
   if (!config.databaseUrl) {
     throw new Error("DATABASE_URL is required.");
+  }
+
+  if (!Number.isInteger(config.processingDelayMs) || config.processingDelayMs < 0) {
+    throw new Error("CONSUMER_PROCESSING_DELAY_MS must be a non-negative integer.");
   }
 }
 

@@ -270,6 +270,12 @@ Step 8 verification:
 - `npm run test` verifies workspace test scripts still resolve.
 - When running locally, `GET /health` returns service health and `GET /scenarios` returns scenario state.
 
+Step 9 verification:
+
+- `npm run check -w apps/consumer` validates the artificial processing delay control.
+- `npm run check -w apps/producer` validates producer interval configuration.
+- `docs/consumer-lag.md` documents how to create and recover increasing lag.
+
 ## Definitions
 
 | Term | Meaning |
@@ -290,6 +296,7 @@ Step 8 verification:
 - Step 5 is complete.
 - Step 6 is complete.
 - Step 7 is complete.
-- Step 8 is drafted and awaiting review.
-- Producer, consumer, and Control API MVP runtime code exists; advanced incident handling has not been written.
-- Step 8 has not been committed or pushed.
+- Step 8 is complete.
+- Step 9 is drafted and awaiting review.
+- Consumer lag can be simulated with producer interval and consumer delay settings.
+- Step 9 has not been committed or pushed.
