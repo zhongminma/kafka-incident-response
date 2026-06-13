@@ -264,6 +264,12 @@ Step 7 verification:
 - `npm run db:summary` inspects the local database when PostgreSQL is running.
 - `docker compose config` confirms the PostgreSQL init schema mount still resolves correctly.
 
+Step 8 verification:
+
+- `npm run check -w apps/control-api` validates Control API JavaScript syntax.
+- `npm run test` verifies workspace test scripts still resolve.
+- When running locally, `GET /health` returns service health and `GET /scenarios` returns scenario state.
+
 ## Definitions
 
 | Term | Meaning |
@@ -283,6 +289,7 @@ Step 7 verification:
 - Step 4 is complete.
 - Step 5 is complete.
 - Step 6 is complete.
-- Step 7 is drafted and awaiting review.
-- Producer and consumer MVP runtime code exists; advanced incident handling has not been written.
-- Step 7 has not been committed or pushed.
+- Step 7 is complete.
+- Step 8 is drafted and awaiting review.
+- Producer, consumer, and Control API MVP runtime code exists; advanced incident handling has not been written.
+- Step 8 has not been committed or pushed.

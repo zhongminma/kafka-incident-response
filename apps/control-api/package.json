@@ -4,5 +4,11 @@
   "private": true,
   "type": "module",
   "description": "Control API package for toggling Kafka incident response scenarios.",
-  "scripts": {}
+  "scripts": {
+    "start": "node src/index.js",
+    "check": "node --check src/index.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
 }
