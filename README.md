@@ -282,6 +282,12 @@ Step 10 verification:
 - `npm run check -w apps/consumer` validates consumer metrics endpoint code.
 - `docs/metrics.md` lists producer and consumer Prometheus metrics.
 
+Step 11 verification:
+
+- `sh -n scripts/kafka-status.sh` validates the Kafka status script syntax.
+- `docker compose config` confirms the Kafka service remains resolvable.
+- `docs/broker-failure.md` documents stop, observe, recover, and cleanup steps.
+
 ## Definitions
 
 | Term | Meaning |
@@ -304,6 +310,7 @@ Step 10 verification:
 - Step 7 is complete.
 - Step 8 is complete.
 - Step 9 is complete.
-- Step 10 is drafted and awaiting review.
-- Producer and consumer expose Prometheus-format metrics endpoints.
-- Step 10 has not been committed or pushed.
+- Step 10 is complete.
+- Step 11 is drafted and awaiting review.
+- Broker failure can be simulated with Docker Compose stop/start and observed with logs and metrics.
+- Step 11 has not been committed or pushed.
