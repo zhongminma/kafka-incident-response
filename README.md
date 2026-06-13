@@ -258,6 +258,12 @@ Step 6 verification:
 - `docker compose config` confirms the PostgreSQL init schema mount resolves correctly.
 - When Kafka and PostgreSQL are running, the consumer stores normal `order.created` events in `consumed_events`.
 
+Step 7 verification:
+
+- `sh -n scripts/db-summary.sh` validates the database summary script syntax.
+- `npm run db:summary` inspects the local database when PostgreSQL is running.
+- `docker compose config` confirms the PostgreSQL init schema mount still resolves correctly.
+
 ## Definitions
 
 | Term | Meaning |
@@ -276,6 +282,7 @@ Step 6 verification:
 - Step 3 is complete.
 - Step 4 is complete.
 - Step 5 is complete.
-- Step 6 is drafted and awaiting review.
+- Step 6 is complete.
+- Step 7 is drafted and awaiting review.
 - Producer and consumer MVP runtime code exists; advanced incident handling has not been written.
-- Step 6 has not been committed or pushed.
+- Step 7 has not been committed or pushed.

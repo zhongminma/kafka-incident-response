@@ -10,7 +10,8 @@
   ],
   "scripts": {
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "db:summary": "./scripts/db-summary.sh"
   },
   "engines": {
     "node": ">=20"
