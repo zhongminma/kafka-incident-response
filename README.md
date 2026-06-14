@@ -319,6 +319,6 @@ Step 12 verification:
 - Step 9 is complete.
 - Step 10 is complete.
 - Step 11 is complete.
-- Step 12 is drafted and awaiting review.
+- Step 12 is complete.
 - Duplicate messages can be simulated and skipped with idempotent database writes.
-- Step 12 has not been committed or pushed.
+- Steps 1 through 12 have been committed and pushed.
