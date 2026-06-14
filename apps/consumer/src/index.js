@@ -10,6 +10,7 @@ const config = {
   groupId: process.env.KAFKA_GROUP_ID ?? "orders-db-writer",
   brokers: (process.env.KAFKA_BROKERS ?? "localhost:9092").split(","),
   topic: process.env.EVENTS_TOPIC ?? "orders.events",
+  dlqTopic: process.env.DLQ_TOPIC ?? "orders.dlq",
   databaseUrl:
     process.env.DATABASE_URL ?? "postgres://app:app@localhost:5432/event_stream",
   processingDelayMs: Number.parseInt(process.env.CONSUMER_PROCESSING_DELAY_MS ?? "0", 10),
@@ -33,9 +34,16 @@ const duplicateMessages = new client.Counter({
   registers: [register]
 });
 
+const dlqMessages = new client.Counter({
+  name: "consumer_dlq_messages_total",
+  help: "Total poison messages routed to the dead-letter topic.",
+  labelNames: ["source_topic", "dlq_topic", "reason"],
+  registers: [register]
+});
+
 const consumerErrors = new client.Counter({
   name: "consumer_processing_errors_total",
-  help: "Total consumer message processing errors.",
+  help: "Total unexpected consumer message processing errors.",
   labelNames: ["topic"],
   registers: [register]
 });
@@ -55,6 +63,14 @@ const processingDelayGauge = new client.Gauge({
 });
 processingDelayGauge.set(config.processingDelayMs);
 
+class ValidationError extends Error {
+  constructor(message, reason) {
+    super(message);
+    this.name = "ValidationError";
+    this.reason = reason;
+  }
+}
+
 function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -63,13 +79,34 @@ function sleep(ms) {
 
 function parseOrderEvent(messageValue) {
   if (!messageValue) {
-    throw new Error("Kafka message value is empty.");
+    throw new ValidationError("Kafka message value is empty.", "empty-value");
   }
 
-  const event = JSON.parse(messageValue.toString("utf8"));
+  let event;
+  try {
+    event = JSON.parse(messageValue.toString("utf8"));
+  } catch (error) {
+    throw new ValidationError(`Kafka message is not valid JSON: ${error.message}`, "invalid-json");
+  }
 
-  if (!event.eventId || !event.eventType || !event.payload?.orderId) {
-    throw new Error("Kafka message is missing required order event fields.");
+  if (!event.eventId) {
+    throw new ValidationError("Kafka message is missing eventId.", "missing-event-id");
+  }
+
+  if (event.eventType !== "order.created") {
+    throw new ValidationError("Kafka message has unsupported eventType.", "unsupported-event-type");
+  }
+
+  if (!event.payload?.orderId) {
+    throw new ValidationError("Kafka message is missing payload.orderId.", "missing-order-id");
+  }
+
+  if (!Number.isInteger(event.payload.quantity) || event.payload.quantity <= 0) {
+    throw new ValidationError("Kafka message has invalid payload.quantity.", "invalid-quantity");
+  }
+
+  if (!Number.isInteger(event.payload.totalCents) || event.payload.totalCents <= 0) {
+    throw new ValidationError("Kafka message has invalid payload.totalCents.", "invalid-total");
   }
 
   return event;
@@ -102,6 +139,34 @@ async function insertEvent(pool, event, message) {
   return result.rowCount === 1;
 }
 
+async function routeToDlq(dlqProducer, messageContext, error) {
+  const { topic, partition, message } = messageContext;
+  const reason = error instanceof ValidationError ? error.reason : "unexpected-error";
+
+  const dlqPayload = {
+    sourceTopic: topic,
+    sourcePartition: partition,
+    sourceOffset: message.offset,
+    key: message.key?.toString("utf8") ?? null,
+    value: message.value?.toString("utf8") ?? null,
+    reason,
+    error: error.message,
+    failedAt: new Date().toISOString()
+  };
+
+  await dlqProducer.send({
+    topic: config.dlqTopic,
+    messages: [
+      {
+        key: dlqPayload.key ?? `${topic}-${partition}-${message.offset}`,
+        value: JSON.stringify(dlqPayload)
+      }
+    ]
+  });
+
+  dlqMessages.inc({ source_topic: topic, dlq_topic: config.dlqTopic, reason });
+}
+
 function startMetricsServer() {
   const server = http.createServer(async (request, response) => {
     if (request.url !== "/metrics") {
@@ -132,6 +197,7 @@ async function main() {
   });
 
   const consumer = kafka.consumer({ groupId: config.groupId });
+  const dlqProducer = kafka.producer();
   const pool = new Pool({ connectionString: config.databaseUrl });
   let shuttingDown = false;
 
@@ -141,9 +207,10 @@ async function main() {
     }
 
     shuttingDown = true;
-    console.log(`Received ${signal}. Disconnecting consumer and database pool...`);
+    console.log(`Received ${signal}. Disconnecting consumer, DLQ producer, and database pool...`);
     metricsServer.close();
     await consumer.disconnect();
+    await dlqProducer.disconnect();
     await pool.end();
     console.log("Consumer disconnected.");
   };
@@ -157,11 +224,12 @@ async function main() {
   });
 
   await pool.query("SELECT 1");
+  await dlqProducer.connect();
   await consumer.connect();
   await consumer.subscribe({ topic: config.topic, fromBeginning: true });
 
   console.log(
-    `Consumer connected. topic=${config.topic} groupId=${config.groupId} brokers=${config.brokers.join(",")} processingDelayMs=${config.processingDelayMs}`
+    `Consumer connected. topic=${config.topic} dlqTopic=${config.dlqTopic} groupId=${config.groupId} brokers=${config.brokers.join(",")} processingDelayMs=${config.processingDelayMs}`
   );
 
   await consumer.run({
@@ -189,6 +257,12 @@ async function main() {
           );
         }
       } catch (error) {
+        if (error instanceof ValidationError) {
+          await routeToDlq(dlqProducer, { topic, partition, message }, error);
+          console.log(`Routed poison message to ${config.dlqTopic} offset=${message.offset} reason=${error.reason}`);
+          return;
+        }
+
         consumerErrors.inc({ topic });
         throw error;
       }

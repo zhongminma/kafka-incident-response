@@ -295,6 +295,13 @@ Step 12 verification:
 - `docker compose config` confirms the updated schema remains mounted.
 - `docs/duplicate-messages.md` documents duplicate injection and verification.
 
+Step 13 verification:
+
+- `npm run check -w apps/producer` validates poison publishing controls.
+- `npm run check -w apps/consumer` validates message validation and DLQ routing.
+- `docker compose config` confirms the DLQ topic remains available through Kafka setup.
+- `docs/poison-message.md` documents poison injection and DLQ verification.
+
 ## Definitions
 
 | Term | Meaning |
@@ -321,4 +328,6 @@ Step 12 verification:
 - Step 11 is complete.
 - Step 12 is complete.
 - Duplicate messages can be simulated and skipped with idempotent database writes.
-- Steps 1 through 12 have been committed and pushed.
+- Step 13 is drafted and awaiting review.
+- Poison messages can be routed to `orders.dlq` without blocking the consumer.
+- Step 13 has not been committed or pushed.

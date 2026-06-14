@@ -19,6 +19,7 @@ Override either port with `METRICS_PORT`.
 | `producer_publish_errors_total` | Count of publish failures by topic. |
 | `producer_publish_duration_seconds` | Publish duration histogram. |
 | `producer_duplicate_messages_published_total` | Count of intentionally duplicated messages. |
+| `producer_poison_messages_published_total` | Count of intentionally published poison messages. |
 | `producer_*` default metrics | Node.js process and runtime metrics. |
 
 ## Consumer Metrics
@@ -30,6 +31,7 @@ Override either port with `METRICS_PORT`.
 | `consumer_db_write_duration_seconds` | PostgreSQL write duration histogram. |
 | `consumer_processing_delay_ms` | Configured artificial per-message delay. |
 | `consumer_duplicate_messages_total` | Count of duplicate messages skipped by idempotent writes. |
+| `consumer_dlq_messages_total` | Count of poison messages routed to the dead-letter topic. |
 | `consumer_*` default metrics | Node.js process and runtime metrics. |
 
 ## Verify

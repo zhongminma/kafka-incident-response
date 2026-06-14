@@ -9,7 +9,9 @@ const config = {
   topic: process.env.EVENTS_TOPIC ?? "orders.events",
   intervalMs: Number.parseInt(process.env.PRODUCER_INTERVAL_MS ?? "1000", 10),
   metricsPort: Number.parseInt(process.env.METRICS_PORT ?? "9101", 10),
-  duplicateEveryNMessages: Number.parseInt(process.env.DUPLICATE_EVERY_N_MESSAGES ?? "0", 10)
+  duplicateEveryNMessages: Number.parseInt(process.env.DUPLICATE_EVERY_N_MESSAGES ?? "0", 10),
+  poisonEveryNMessages: Number.parseInt(process.env.POISON_EVERY_N_MESSAGES ?? "0", 10),
+  poisonMode: process.env.POISON_MODE ?? "missing-field"
 };
 
 const register = new client.Registry();
@@ -26,6 +28,13 @@ const duplicateMessages = new client.Counter({
   name: "producer_duplicate_messages_published_total",
   help: "Total duplicate Kafka messages intentionally published by the producer.",
   labelNames: ["topic", "event_type"],
+  registers: [register]
+});
+
+const poisonMessages = new client.Counter({
+  name: "producer_poison_messages_published_total",
+  help: "Total poison messages intentionally published by the producer.",
+  labelNames: ["topic", "mode"],
   registers: [register]
 });
 
@@ -64,6 +73,31 @@ function buildOrderEvent() {
   };
 }
 
+function buildPoisonMessage() {
+  if (config.poisonMode === "invalid-json") {
+    return {
+      key: randomUUID(),
+      value: "{not-valid-json",
+      eventType: "invalid-json"
+    };
+  }
+
+  const event = buildOrderEvent();
+
+  if (config.poisonMode === "missing-field") {
+    delete event.payload.orderId;
+  } else if (config.poisonMode === "invalid-business") {
+    event.payload.quantity = -1;
+    event.payload.totalCents = -1;
+  }
+
+  return {
+    key: event.payload.orderId ?? event.eventId,
+    value: JSON.stringify(event),
+    eventType: event.eventType
+  };
+}
+
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -93,7 +127,16 @@ function startMetricsServer() {
   return server;
 }
 
-function selectEventToPublish(state) {
+function selectMessageToPublish(state) {
+  const shouldPoison =
+    config.poisonEveryNMessages > 0 &&
+    state.publishedCount > 0 &&
+    state.publishedCount % config.poisonEveryNMessages === 0;
+
+  if (shouldPoison) {
+    return { ...buildPoisonMessage(), isDuplicate: false, isPoison: true };
+  }
+
   const shouldDuplicate =
     config.duplicateEveryNMessages > 0 &&
     state.lastEvent &&
@@ -101,12 +144,26 @@ function selectEventToPublish(state) {
     state.publishedCount % config.duplicateEveryNMessages === 0;
 
   if (shouldDuplicate) {
-    return { event: state.lastEvent, isDuplicate: true };
+    return {
+      key: state.lastEvent.payload.orderId,
+      value: JSON.stringify(state.lastEvent),
+      eventType: state.lastEvent.eventType,
+      event: state.lastEvent,
+      isDuplicate: true,
+      isPoison: false
+    };
   }
 
   const event = buildOrderEvent();
   state.lastEvent = event;
-  return { event, isDuplicate: false };
+  return {
+    key: event.payload.orderId,
+    value: JSON.stringify(event),
+    eventType: event.eventType,
+    event,
+    isDuplicate: false,
+    isPoison: false
+  };
 }
 
 async function main() {
@@ -145,11 +202,11 @@ async function main() {
 
   await producer.connect();
   console.log(
-    `Producer connected. topic=${config.topic} brokers=${config.brokers.join(",")} intervalMs=${config.intervalMs} duplicateEveryNMessages=${config.duplicateEveryNMessages}`
+    `Producer connected. topic=${config.topic} brokers=${config.brokers.join(",")} intervalMs=${config.intervalMs} duplicateEveryNMessages=${config.duplicateEveryNMessages} poisonEveryNMessages=${config.poisonEveryNMessages} poisonMode=${config.poisonMode}`
   );
 
   while (!shuttingDown) {
-    const { event, isDuplicate } = selectEventToPublish(state);
+    const message = selectMessageToPublish(state);
     const endTimer = publishDuration.startTimer({ topic: config.topic });
 
     try {
@@ -157,21 +214,25 @@ async function main() {
         topic: config.topic,
         messages: [
           {
-            key: event.payload.orderId,
-            value: JSON.stringify(event)
+            key: message.key,
+            value: message.value
           }
         ]
       });
 
       state.publishedCount += 1;
-      producedMessages.inc({ topic: config.topic, event_type: event.eventType });
+      producedMessages.inc({ topic: config.topic, event_type: message.eventType });
 
-      if (isDuplicate) {
-        duplicateMessages.inc({ topic: config.topic, event_type: event.eventType });
+      if (message.isDuplicate) {
+        duplicateMessages.inc({ topic: config.topic, event_type: message.eventType });
+      }
+
+      if (message.isPoison) {
+        poisonMessages.inc({ topic: config.topic, mode: config.poisonMode });
       }
 
       console.log(
-        `Published ${event.eventType} eventId=${event.eventId} orderId=${event.payload.orderId} duplicate=${isDuplicate}`
+        `Published ${message.eventType} key=${message.key} duplicate=${message.isDuplicate} poison=${message.isPoison}`
       );
     } catch (error) {
       publishErrors.inc({ topic: config.topic });
@@ -199,6 +260,14 @@ function validateConfig() {
 
   if (!Number.isInteger(config.duplicateEveryNMessages) || config.duplicateEveryNMessages < 0) {
     throw new Error("DUPLICATE_EVERY_N_MESSAGES must be a non-negative integer.");
+  }
+
+  if (!Number.isInteger(config.poisonEveryNMessages) || config.poisonEveryNMessages < 0) {
+    throw new Error("POISON_EVERY_N_MESSAGES must be a non-negative integer.");
+  }
+
+  if (!["missing-field", "invalid-json", "invalid-business"].includes(config.poisonMode)) {
+    throw new Error("POISON_MODE must be one of: missing-field, invalid-json, invalid-business.");
   }
 }
 
