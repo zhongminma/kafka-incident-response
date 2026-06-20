@@ -308,6 +308,317 @@ Local integration checkpoint:
 - Consumer lag growth and recovery, duplicate protection, and poison-message DLQ routing passed.
 - Broker failure detection and consumer recovery passed; automatic producer recovery remains follow-up work.
 
+## Step-by-Step Testing Guide
+
+Follow this section from top to bottom to validate the base Kafka-to-database pipeline and all four incident scenarios.
+
+### 1. Prepare Three Terminals
+
+Open three terminal windows:
+
+| Terminal | Purpose |
+| --- | --- |
+| Terminal A | Docker, Kafka administration, metrics, and database checks |
+| Terminal B | Run the Consumer |
+| Terminal C | Run the Producer |
+
+In every terminal, change to the project directory:
+
+```bash
+cd /Users/kevinma/Documents/kafka-incident-response
+```
+
+### 2. Start the Dependencies
+
+In Terminal A, run:
+
+```bash
+docker compose up -d
+docker compose ps
+```
+
+Confirm that Kafka and PostgreSQL both report `healthy`:
+
+```text
+kafka-incident-response-kafka      Up ... (healthy)
+kafka-incident-response-postgres   Up ... (healthy)
+```
+
+Create the Kafka topics:
+
+```bash
+./scripts/setup-topics.sh
+```
+
+The output should include:
+
+```text
+orders.dlq
+orders.events
+```
+
+### 3. Verify the Base Kafka-to-DB Pipeline
+
+Start the Consumer in Terminal B:
+
+```bash
+npm run start -w apps/consumer
+```
+
+Successful startup looks like this:
+
+```text
+Consumer metrics listening on port 9102
+Consumer connected. topic=orders.events ... processingDelayMs=0
+Consumer has joined the group
+```
+
+Start the Producer in Terminal C:
+
+```bash
+npm run start -w apps/producer
+```
+
+The Producer should continuously print:
+
+```text
+Published order.created ... duplicate=false poison=false
+```
+
+The Consumer should continuously print:
+
+```text
+Stored order.created ...
+```
+
+Check the database from Terminal A:
+
+```bash
+npm run db:summary
+```
+
+If `consumed_event_count` is greater than zero, events have successfully traveled through the Producer, Kafka, and Consumer into PostgreSQL. This value is cumulative and does not need to match the number of events published during the current test.
+
+When finished, press `Control+C` in Terminal C to stop the Producer. Keep the Consumer running in Terminal B.
+
+### 4. Scenario One: Increasing Consumer Lag
+
+Press `Control+C` in Terminal B to stop the normal Consumer, then start a slow Consumer:
+
+```bash
+CONSUMER_PROCESSING_DELAY_MS=1000 npm run start -w apps/consumer
+```
+
+Confirm that the log shows:
+
+```text
+processingDelayMs=1000
+```
+
+Start a fast Producer in Terminal C:
+
+```bash
+PRODUCER_INTERVAL_MS=50 npm run start -w apps/producer
+```
+
+Wait about 20 seconds, then inspect lag from Terminal A:
+
+```bash
+docker compose exec kafka /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --describe \
+  --group orders-db-writer
+```
+
+The scenario is reproduced when `LAG` is greater than zero on all three partitions. One local test produced:
+
+```text
+PARTITION 0  LAG 139
+PARTITION 1  LAG 128
+PARTITION 2  LAG 152
+```
+
+The total lag was `419`.
+
+Recovery steps:
+
+1. Press `Control+C` in Terminal C to stop the fast Producer.
+2. Press `Control+C` in Terminal B to stop the slow Consumer.
+3. Run `npm run start -w apps/consumer` in Terminal B to restore normal processing speed.
+4. Run the consumer group command again and confirm that `LAG` returns to `0` on all three partitions.
+
+### 5. Scenario Two: Broker Failure
+
+Make sure the normal Consumer is running in Terminal B and the normal Producer is running in Terminal C.
+
+Terminal B:
+
+```bash
+npm run start -w apps/consumer
+```
+
+Terminal C:
+
+```bash
+npm run start -w apps/producer
+```
+
+Stop Kafka from Terminal A:
+
+```bash
+docker compose stop kafka
+```
+
+The Producer and Consumer should report one or more of these errors:
+
+```text
+ECONNRESET
+ECONNREFUSED
+Failed to connect to seed broker
+```
+
+These errors confirm that the clients detected the broker failure.
+
+Restart Kafka:
+
+```bash
+docker compose start kafka
+docker compose ps
+```
+
+Wait until Kafka reports `healthy` again. The Consumer should retry automatically and rejoin its consumer group. Successful recovery looks like this:
+
+```text
+Consumer has joined the group
+memberAssignment={"orders.events":[0,1,2]}
+```
+
+The Producer currently has a known limitation. If Kafka remains unavailable longer than the KafkaJS retry budget, the Producer reports:
+
+```text
+Producer failed. KafkaJSNonRetriableError
+```
+
+To recover, press `Control+C` in Terminal C and restart the Producer:
+
+```bash
+npm run start -w apps/producer
+```
+
+The system has recovered when the Producer prints `Published order.created` and the Consumer prints `Stored order.created` again.
+
+### 6. Scenario Three: Duplicate Messages
+
+Keep the normal Consumer running, stop the previous Producer, and start duplicate-message mode in Terminal C:
+
+```bash
+DUPLICATE_EVERY_N_MESSAGES=2 npm run start -w apps/producer
+```
+
+The Consumer should print both:
+
+```text
+Stored order.created ...
+Skipped duplicate order.created ...
+```
+
+The first occurrence of an `eventId` is stored. The second occurrence is identified as a duplicate, and the database `event_id` unique constraint prevents another insert.
+
+Check the metric from Terminal A:
+
+```bash
+curl -s http://localhost:9102/metrics | grep consumer_duplicate_messages_total
+```
+
+One local test produced:
+
+```text
+consumer_duplicate_messages_total{topic="orders.events",event_type="order.created"} 85
+```
+
+The scenario passes when this counter is greater than zero and the Consumer prints `Skipped duplicate`. Press `Control+C` in Terminal C when finished.
+
+### 7. Scenario Four: Poison Message
+
+Keep the normal Consumer running and start invalid-JSON mode in Terminal C:
+
+```bash
+POISON_EVERY_N_MESSAGES=2 \
+POISON_MODE=invalid-json \
+npm run start -w apps/producer
+```
+
+The Producer should alternate between poison messages and normal events:
+
+```text
+Published invalid-json ... poison=true
+Published order.created ... poison=false
+```
+
+The Consumer should print:
+
+```text
+Routed poison message to orders.dlq ... reason=invalid-json
+Stored order.created ...
+```
+
+This confirms that bad records are routed to the DLQ while valid records continue to be processed.
+
+Check the DLQ metric:
+
+```bash
+curl -s http://localhost:9102/metrics | grep consumer_dlq_messages_total
+```
+
+One local test produced:
+
+```text
+consumer_dlq_messages_total{source_topic="orders.events",dlq_topic="orders.dlq",reason="invalid-json"} 24
+```
+
+Read one DLQ record:
+
+```bash
+docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic orders.dlq \
+  --from-beginning \
+  --max-messages 1
+```
+
+The DLQ record should contain `sourceTopic`, `sourcePartition`, `sourceOffset`, the original `value`, `reason`, `error`, and `failedAt`. This context supports later investigation and replay.
+
+### 8. Stop and Clean Up
+
+1. Press `Control+C` in Terminal C to stop the Producer.
+2. Press `Control+C` in Terminal B to stop the Consumer.
+3. Stop the Docker services from Terminal A:
+
+```bash
+docker compose down
+```
+
+This removes the containers but preserves the PostgreSQL named volume. Use the following command only when you need to delete all PostgreSQL test data:
+
+```bash
+docker compose down -v
+```
+
+### 9. Troubleshooting
+
+| Problem | Cause | Resolution |
+| --- | --- | --- |
+| Kafka or PostgreSQL does not report `healthy` | The service is still starting, or Docker does not have enough resources | Wait and run `docker compose ps` again; inspect `docker compose logs kafka` if needed |
+| `orders.events` or `orders.dlq` is missing | Topics have not been created, or the Kafka container was recreated | Run `./scripts/setup-topics.sh` |
+| The Consumer has no new output | The Producer is stopped and no new records are entering Kafka | Start the Producer; an idle Consumer is expected to wait quietly |
+| Consumer startup reports `EADDRINUSE: 9102` | Another Consumer already owns the metrics port | Find the original Consumer terminal and press `Control+C`; do not run two identical Consumers |
+| Producer startup reports `EADDRINUSE: 9101` | Another Producer already owns the metrics port | Find the original Producer terminal and press `Control+C` |
+| Lag does not increase | The Producer is not fast enough, or the Consumer delay is disabled | Use `PRODUCER_INTERVAL_MS=50` and `CONSUMER_PROCESSING_DELAY_MS=1000` |
+| The Producer does not publish after Kafka recovers | The Producer exhausted its KafkaJS retry budget | Press `Control+C`, then run `npm run start -w apps/producer` again |
+| The Consumer does not immediately rejoin after broker recovery | Kafka is not fully healthy yet, and the Consumer is backing off between retries | Wait for `Consumer has joined the group`; restarting the Consumer is normally unnecessary |
+| A Kafka CLI command is not found | The Apache Kafka image does not add its CLI directory to the default `PATH` | Use the full `/opt/kafka/bin/kafka-*.sh` path |
+| The database event count is unexpectedly large | The PostgreSQL volume contains data from earlier tests | This cumulative result is expected; use `docker compose down -v` to reset it, but note that this deletes data |
+
 ## Definitions
 
 | Term | Meaning |
@@ -337,4 +648,5 @@ Local integration checkpoint:
 - Step 13 is complete.
 - Poison messages can be routed to `orders.dlq` without blocking the consumer.
 - The local pipeline and four scenarios have been exercised end to end.
-- Live testing corrections and results are drafted and awaiting review.
+- Live testing corrections have been committed and verified locally.
+- The English step-by-step testing and troubleshooting guide is drafted and awaiting review.
