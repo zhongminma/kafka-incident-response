@@ -34,7 +34,7 @@ PRODUCER_INTERVAL_MS=100 npm run start -w apps/producer
 ## Inspect Lag
 
 ```bash
-docker compose exec kafka kafka-consumer-groups.sh \
+docker compose exec kafka /opt/kafka/bin/kafka-consumer-groups.sh \
   --bootstrap-server localhost:9092 \
   --describe \
   --group orders-db-writer

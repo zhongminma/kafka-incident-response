@@ -9,7 +9,7 @@ EVENTS_TOPIC="${EVENTS_TOPIC:-orders.events}"
 DLQ_TOPIC="${DLQ_TOPIC:-orders.dlq}"
 
 run_kafka_topics() {
-  docker compose exec -T "$KAFKA_SERVICE" kafka-topics.sh "$@"
+  docker compose exec -T "$KAFKA_SERVICE" /opt/kafka/bin/kafka-topics.sh "$@"
 }
 
 echo "Waiting for Kafka at ${BOOTSTRAP_SERVER}..."

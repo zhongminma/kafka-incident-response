@@ -37,7 +37,7 @@ Supported environment variables:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `BOOTSTRAP_SERVER` | `localhost:9092` | Kafka bootstrap server used by `kafka-topics.sh`. |
+| `BOOTSTRAP_SERVER` | `localhost:9092` | Kafka bootstrap server used by `/opt/kafka/bin/kafka-topics.sh`. |
 | `KAFKA_SERVICE` | `kafka` | Docker Compose service name for the Kafka broker. |
 | `PARTITIONS` | `3` | Partition count for both topics. |
 | `REPLICATION_FACTOR` | `1` | Replication factor for both topics. |
@@ -47,7 +47,7 @@ Supported environment variables:
 ## Verify Topics
 
 ```bash
-docker compose exec kafka kafka-topics.sh --bootstrap-server localhost:9092 --list
+docker compose exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
 ```
 
 Expected topics:
@@ -60,7 +60,7 @@ orders.events
 Describe a topic:
 
 ```bash
-docker compose exec kafka kafka-topics.sh \
+docker compose exec kafka /opt/kafka/bin/kafka-topics.sh \
   --bootstrap-server localhost:9092 \
   --describe \
   --topic orders.events

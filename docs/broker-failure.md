@@ -69,9 +69,15 @@ docker compose ps kafka
 
 Expected recovery:
 
-- Producer reconnects and resumes publishing.
 - Consumer group reconnects and resumes consuming.
+- Restart the producer process if its KafkaJS retry budget was exhausted while the broker was unavailable.
 - Lag may temporarily increase, then drain if consumer throughput is high enough.
+
+## Current Producer Limitation
+
+The producer records a publish error and KafkaJS retries while the broker is unavailable. If the outage lasts beyond the retry budget, the producer's publish loop exits and does not resume automatically when Kafka returns. Restart the producer after the broker is healthy.
+
+Automatic producer recovery is intentionally left for a separate, reviewable reliability step.
 
 ## Cleanup
 

@@ -40,7 +40,7 @@ POISON_EVERY_N_MESSAGES=3 POISON_MODE=missing-field npm run start -w apps/produc
 Read records from the dead-letter topic:
 
 ```bash
-docker compose exec kafka kafka-console-consumer.sh \
+docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
   --bootstrap-server localhost:9092 \
   --topic orders.dlq \
   --from-beginning \

@@ -302,6 +302,12 @@ Step 13 verification:
 - `docker compose config` confirms the DLQ topic remains available through Kafka setup.
 - `docs/poison-message.md` documents poison injection and DLQ verification.
 
+Local integration checkpoint:
+
+- `docs/end-to-end-testing.md` records live results for the baseline pipeline and all four incident scenarios.
+- Consumer lag growth and recovery, duplicate protection, and poison-message DLQ routing passed.
+- Broker failure detection and consumer recovery passed; automatic producer recovery remains follow-up work.
+
 ## Definitions
 
 | Term | Meaning |
@@ -328,6 +334,7 @@ Step 13 verification:
 - Step 11 is complete.
 - Step 12 is complete.
 - Duplicate messages can be simulated and skipped with idempotent database writes.
-- Step 13 is drafted and awaiting review.
+- Step 13 is complete.
 - Poison messages can be routed to `orders.dlq` without blocking the consumer.
-- Step 13 has not been committed or pushed.
+- The local pipeline and four scenarios have been exercised end to end.
+- Live testing corrections and results are drafted and awaiting review.
